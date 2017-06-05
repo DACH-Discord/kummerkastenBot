@@ -31,7 +31,6 @@ import java.util.TimerTask;
 
 public class KummerkastenBot {
     private final static Path CONFIG_PATH = Paths.get("config/config.json");
-    private final static Path BLACKLIST_PATH = Paths.get("data/blacklist.json");
 
     private static IDiscordClient client;
 
@@ -55,10 +54,6 @@ public class KummerkastenBot {
         this.channelID = jsonConfig.getString("channel");
         this.prefix = jsonConfig.getString("prefix");
         this.modID = jsonConfig.getString("modRole");
-
-        // Geblacklistete IDs einlesen
-        final String blacklistFileContent = Util.readFile(BLACKLIST_PATH);
-        this.jsonBlacklist = new JSONObject(blacklistFileContent);
 
         // Bot authorisieren
         client = Authorization.createClient(token, true);
@@ -111,6 +106,9 @@ public class KummerkastenBot {
                 messageContent.matches(this.prefix + "blacklist \\d+")) {
             this.command_Blacklist(message);
         }
+        else if (messageContent.matches(this.prefix + "whitelist \\d+")) {
+            this.command_Whitelist(message);
+        }
         else if (messageContent.equalsIgnoreCase(this.prefix + "resetIDs")) {
             this.command_ResetIDs(message);
         }
@@ -126,26 +124,50 @@ public class KummerkastenBot {
     }
 
     private void command_Blacklist(final IMessage message) {
-        if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
-            return;
-        }
+        //if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
+        //    return;
+        //}
 
         final String anonID = Util.getContext(message.getContent());
 
         boolean found = false;
         for (String discordID : this.anonUsers.keySet()) {
-            if (this.anonUsers.get(discordID).getID().equals(anonID)) {
-                jsonBlacklist.put(discordID, "");
+            final AnonUser anonUser = this.anonUsers.get(discordID);
+            if (anonUser.getID().equals(anonID)) {
+                anonUser.blacklist();
                 found = true;
             }
         }
-        this.saveJSON();
 
         if (found) {
             Util.sendMessage(message.getChannel(), ":white_check_mark: **Nutzer #" + anonID + "** geblacklisted!");
         }
         else {
-            Util.sendMessage(message.getChannel(), ":x: Fehler!");
+            Util.sendMessage(message.getChannel(), ":x: Fehler! Nutzer mit der ID `" + anonID + "` nicht gefunden");
+        }
+    }
+
+    private void command_Whitelist(final IMessage message) {
+        //if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
+        //    return;
+        //}
+
+        final String anonID = Util.getContext(message.getContent());
+
+        boolean found = false;
+        for (String discordID : this.anonUsers.keySet()) {
+            final AnonUser anonUser = this.anonUsers.get(discordID);
+            if (anonUser.getID().equals(anonID)) {
+                anonUser.whitelist();
+                found = true;
+            }
+        }
+
+        if (found) {
+            Util.sendMessage(message.getChannel(), ":white_check_mark: **Nutzer #" + anonID + "** gewhitelisted!");
+        }
+        else {
+            Util.sendMessage(message.getChannel(), ":x: Fehler! Nutzer mit der ID `" + anonID + "` nicht gefunden");
         }
     }
 
@@ -163,13 +185,6 @@ public class KummerkastenBot {
     }
 
     private void relayMessage(final IMessage message) {
-
-        if (jsonBlacklist.has(message.getAuthor().getID())) {
-            Util.sendPM(message.getAuthor(), "Du bist geblacklisted! Wenn du glaubst dass das ein Fehler ist, " +
-                    "melde dich bei einem Moderator!");
-            return;
-        }
-
         final IUser discordUser = message.getAuthor();
         final String discordID = discordUser.getID();
 
@@ -178,6 +193,12 @@ public class KummerkastenBot {
         }
 
         final AnonUser anonUser = anonUsers.get(discordID);
+
+        if (anonUser.isBlacklisted()) {
+            Util.sendPM(message.getAuthor(), "Du bist geblacklisted! Wenn du glaubst dass das ein Fehler ist, " +
+                    "melde dich bei einem Moderator!");
+            return;
+        }
 
         List<IMessage.Attachment> attatchments = message.getAttachments();
 
@@ -212,13 +233,6 @@ public class KummerkastenBot {
         this.anonUsers = new HashMap<>();
         Util.sendMessage(this.channel, "Identitäten wurden zurückgesetzt!");
         System.out.println("[INFO] Identitäten wurden zurückgesetzt!");
-    }
-
-    private void saveJSON() {
-        final String jsonOutput = this.jsonBlacklist.toString(4);
-        Util.writeToFile(BLACKLIST_PATH, jsonOutput);
-
-        this.jsonBlacklist = new JSONObject(jsonOutput);
     }
 
     public static void main(String[] args) {
