@@ -37,7 +37,6 @@ public class Util {
 
     public static synchronized IMessage sendEmbed(final IChannel channel, final EmbedObject embedObject) {
         try {
-
             RequestBuffer.request(() -> {
                 return channel.sendMessage(embedObject);
             });

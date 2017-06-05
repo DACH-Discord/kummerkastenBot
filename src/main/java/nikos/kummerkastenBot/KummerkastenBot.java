@@ -16,12 +16,16 @@ import sx.blah.discord.handle.obj.IMessage;
 import sx.blah.discord.handle.obj.IUser;
 import sx.blah.discord.util.EmbedBuilder;
 
-import java.awt.*;
+import java.awt.Color;
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
-import java.util.Random;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -84,7 +88,11 @@ public class KummerkastenBot {
             }
         };
 
-        final int timeUntilMidnight = 0;
+        final LocalDateTime now = LocalDateTime.now();
+        final LocalDateTime nextMidnight = LocalDateTime.of(LocalDate.now().plusDays(1L), LocalTime.of(0, 0));
+        final int timeUntilMidnight = (int)now.until(nextMidnight, ChronoUnit.MILLIS);
+
+
         timer.scheduleAtFixedRate(task, timeUntilMidnight, 86400000);
 
         client.changePlayingText(this.prefix + "kummerkasten");
@@ -106,7 +114,7 @@ public class KummerkastenBot {
         else if (messageContent.equalsIgnoreCase(this.prefix + "resetIDs")) {
             this.command_ResetIDs(message);
         }
-        else {
+        else if (message.getChannel().isPrivate()) {
             this.relayMessage(message);
         }
     }
@@ -155,9 +163,7 @@ public class KummerkastenBot {
     }
 
     private void relayMessage(final IMessage message) {
-        if (!message.getChannel().isPrivate() || !this.ready) {
-            return;
-        }
+
         if (jsonBlacklist.has(message.getAuthor().getID())) {
             Util.sendPM(message.getAuthor(), "Du bist geblacklisted! Wenn du glaubst dass das ein Fehler ist, " +
                     "melde dich bei einem Moderator!");
@@ -173,10 +179,18 @@ public class KummerkastenBot {
 
         final AnonUser anonUser = anonUsers.get(discordID);
 
+        List<IMessage.Attachment> attatchments = message.getAttachments();
+
         final EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.withColor(anonUser.getColor());
         embedBuilder.withAuthorName("Nutzer #" + anonUser.getID());
         embedBuilder.withDesc(message.getContent());
+
+        if (attatchments.size() > 0) {
+            for (IMessage.Attachment attachment : attatchments) {
+                embedBuilder.withImage(attachment.getUrl());
+            }
+        }
 
         Util.sendEmbed(channel, embedBuilder.build());
     }
