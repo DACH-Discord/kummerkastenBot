@@ -124,9 +124,9 @@ public class KummerkastenBot {
     }
 
     private void command_Blacklist(final IMessage message) {
-        //if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
-        //    return;
-        //}
+        if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
+            return;
+        }
 
         final String anonID = Util.getContext(message.getContent());
 
@@ -148,9 +148,9 @@ public class KummerkastenBot {
     }
 
     private void command_Whitelist(final IMessage message) {
-        //if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
-        //    return;
-        //}
+        if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
+            return;
+        }
 
         final String anonID = Util.getContext(message.getContent());
 
