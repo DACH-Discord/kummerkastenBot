@@ -200,17 +200,13 @@ public class KummerkastenBot {
             return;
         }
 
-        List<IMessage.Attachment> attatchments = message.getAttachments();
-
         final EmbedBuilder embedBuilder = new EmbedBuilder();
         embedBuilder.withColor(anonUser.getColor());
         embedBuilder.withAuthorName("Nutzer #" + anonUser.getID());
         embedBuilder.withDesc(message.getContent());
 
-        if (attatchments.size() > 0) {
-            for (IMessage.Attachment attachment : attatchments) {
-                embedBuilder.withImage(attachment.getUrl());
-            }
+        for (IMessage.Attachment attachment : message.getAttachments()) {
+            embedBuilder.withImage(attachment.getUrl());
         }
 
         Util.sendEmbed(channel, embedBuilder.build());
