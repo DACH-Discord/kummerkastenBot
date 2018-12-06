@@ -80,7 +80,7 @@ public class Util {
         final List<IRole> roles = user.getRolesForGuild(guild);
 
         for (IRole role : roles) {
-            if (roleID.equals(role.getID())) {
+            if (roleID.equals(role.getStringID())) {
                 return true;
             }
         }

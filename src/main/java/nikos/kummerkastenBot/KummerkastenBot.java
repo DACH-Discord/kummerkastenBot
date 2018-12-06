@@ -11,9 +11,7 @@ import sx.blah.discord.api.events.EventDispatcher;
 import sx.blah.discord.api.events.EventSubscriber;
 import sx.blah.discord.handle.impl.events.ReadyEvent;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
-import sx.blah.discord.handle.obj.IChannel;
-import sx.blah.discord.handle.obj.IMessage;
-import sx.blah.discord.handle.obj.IUser;
+import sx.blah.discord.handle.obj.*;
 import sx.blah.discord.util.EmbedBuilder;
 
 import java.awt.Color;
@@ -35,7 +33,7 @@ public class KummerkastenBot {
     private static IDiscordClient client;
 
     private String prefix;
-    private String channelID;
+    private long channelID;
     private IChannel channel;
     private String modID;
     private boolean ready;
@@ -51,7 +49,7 @@ public class KummerkastenBot {
         final String configFileContent = Util.readFile(CONFIG_PATH);
         final JSONObject jsonConfig = new JSONObject(configFileContent);
         final String token = jsonConfig.getString("token");
-        this.channelID = jsonConfig.getString("channel");
+        this.channelID = jsonConfig.getLong("channel");
         this.prefix = jsonConfig.getString("prefix");
         this.modID = jsonConfig.getString("modRole");
 
@@ -90,7 +88,7 @@ public class KummerkastenBot {
 
         timer.scheduleAtFixedRate(task, timeUntilMidnight, 86400000);
 
-        client.changePlayingText(this.prefix + "kummerkasten");
+        client.changePresence(StatusType.ONLINE, ActivityType.PLAYING, this.prefix + "kummerkasten");
         System.out.println("[INFO] Bot ready! Prefix: " + this.prefix);
     }
 
@@ -118,7 +116,7 @@ public class KummerkastenBot {
     }
 
     private void command_ResetIDs(final IMessage message) {
-        if (message.getAuthor().getID().equals("165857945471418368")) {
+        if (message.getAuthor().getStringID().equals("165857945471418368")) {
             this.resetIDs();
         }
     }
@@ -186,7 +184,7 @@ public class KummerkastenBot {
 
     private void relayMessage(final IMessage message) {
         final IUser discordUser = message.getAuthor();
-        final String discordID = discordUser.getID();
+        final String discordID = discordUser.getStringID();
 
         if (!anonUsers.containsKey(discordID)) {
             this.makeAnonUser(discordUser);
@@ -222,7 +220,7 @@ public class KummerkastenBot {
         final Color anonColor = new Color(red, green, blue);
 
         final AnonUser anonUser = new AnonUser(anonID, anonColor);
-        anonUsers.put(discordUser.getID(), anonUser);
+        anonUsers.put(discordUser.getStringID(), anonUser);
     }
 
     private void resetIDs() {
