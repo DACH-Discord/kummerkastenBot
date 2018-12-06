@@ -11,6 +11,7 @@ import sx.blah.discord.api.events.EventDispatcher;
 import sx.blah.discord.api.events.EventSubscriber;
 import sx.blah.discord.handle.impl.events.ReadyEvent;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
+import sx.blah.discord.handle.impl.events.guild.channel.message.reaction.ReactionAddEvent;
 import sx.blah.discord.handle.obj.*;
 import sx.blah.discord.util.EmbedBuilder;
 
@@ -26,35 +27,44 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class KummerkastenBot {
     private final static Path CONFIG_PATH = Paths.get("config/config.json");
 
     private static IDiscordClient client;
 
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
     private String prefix;
+
     private long channelID;
     private IChannel channel;
-    private String modID;
-    private boolean ready;
 
-    private Timer timer;
+    private long modRoleID;
+    private IRole modRole;
+
+    private long ownerID;
+
+    private long period;
+    private String informationMessage;
+
     private HashMap<String, AnonUser> anonUsers;
     private JSONObject jsonBlacklist;
+
 
     private KummerkastenBot() {
         this.anonUsers = new HashMap<>();
 
-        // Token und Kanal aus Config-Datei auslesen
+        // Read config
         final String configFileContent = Util.readFile(CONFIG_PATH);
         final JSONObject jsonConfig = new JSONObject(configFileContent);
-        final String token = jsonConfig.getString("token");
-        this.channelID = jsonConfig.getLong("channel");
-        this.prefix = jsonConfig.getString("prefix");
-        this.modID = jsonConfig.getString("modRole");
 
-        // Bot authorisieren
+        final String token = jsonConfig.getString("token");
         client = Authorization.createClient(token, true);
+
         try {
             EventDispatcher dispatcher = client.getDispatcher();
             dispatcher.registerListener(this);
@@ -64,32 +74,33 @@ public class KummerkastenBot {
             e.printStackTrace();
         }
 
-        // Timer initialisieren
-        this.timer = new Timer();
+        this.prefix = jsonConfig.getString("prefix");
+
+        this.channelID = jsonConfig.getLong("channel");
+        this.modRoleID = jsonConfig.getLong("modRole");
+        this.ownerID = jsonConfig.getLong("owner");
+
+        this.period = jsonConfig.getLong("resetPeriod");
+        this.informationMessage = jsonConfig.getString("message");
+
+        // Wait until next midnight to start cycle
+        final LocalDateTime now = LocalDateTime.now();
+        final LocalDateTime nextMidnight = LocalDateTime.of(LocalDate.now().plusDays(1L), LocalTime.of(0, 0));
+        final long timeUntilMidnight = now.until(nextMidnight, ChronoUnit.SECONDS);
+        scheduler.schedule(this::startCycle, timeUntilMidnight, TimeUnit.SECONDS);
     }
 
     @EventSubscriber
     public void onStartup(ReadyEvent event) {
         this.channel = client.getChannelByID(this.channelID);
-        this.ready = true;
-
-        // Alle 24 Stunden IDs zurücksetzen
-        final TimerTask task = new TimerTask() {
-            @Override
-            public void run() {
-                resetIDs();
-            }
-        };
-
-        final LocalDateTime now = LocalDateTime.now();
-        final LocalDateTime nextMidnight = LocalDateTime.of(LocalDate.now().plusDays(1L), LocalTime.of(0, 0));
-        final int timeUntilMidnight = (int)now.until(nextMidnight, ChronoUnit.MILLIS);
-
-
-        timer.scheduleAtFixedRate(task, timeUntilMidnight, 86400000);
+        this.modRole = channel.getGuild().getRoleByID(this.modRoleID);
 
         client.changePresence(StatusType.ONLINE, ActivityType.PLAYING, this.prefix + "kummerkasten");
         System.out.println("[INFO] Bot ready! Prefix: " + this.prefix);
+    }
+
+    private void startCycle() {
+        scheduler.scheduleAtFixedRate(this::resetIDs, 0, this.period, TimeUnit.HOURS);
     }
 
     @EventSubscriber
@@ -122,7 +133,7 @@ public class KummerkastenBot {
     }
 
     private void command_Blacklist(final IMessage message) {
-        if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
+        if (!message.getAuthor().getRolesForGuild(message.getGuild()).contains(this.modRole)) {
             return;
         }
 
@@ -146,7 +157,7 @@ public class KummerkastenBot {
     }
 
     private void command_Whitelist(final IMessage message) {
-        if (!Util.hasRoleByID(message.getAuthor(), message.getGuild(), this.modID)) {
+        if (!message.getAuthor().getRolesForGuild(message.getGuild()).contains(this.modRole)) {
             return;
         }
 
@@ -191,6 +202,12 @@ public class KummerkastenBot {
         }
 
         final AnonUser anonUser = anonUsers.get(discordID);
+
+        if (!anonUser.hasApproved()) {
+            Util.sendPM(discordUser, this.informationMessage);
+            anonUser.setDidApprove();
+            return;
+        }
 
         if (anonUser.isBlacklisted()) {
             Util.sendPM(message.getAuthor(), "Du bist geblacklisted! Wenn du glaubst dass das ein Fehler ist, " +

@@ -6,6 +6,7 @@ public class AnonUser {
     private final String id;
     private final Color color;
     private boolean isBlacklisted = false;
+    private boolean didApprove = false;
 
     public AnonUser (final String anonID, final Color anonColor) {
         this.id = anonID;
@@ -30,5 +31,13 @@ public class AnonUser {
 
     public void whitelist() {
         this.isBlacklisted = false;
+    }
+
+    public void setDidApprove() {
+        didApprove = true;
+    }
+
+    public boolean hasApproved() {
+        return didApprove;
     }
 }
